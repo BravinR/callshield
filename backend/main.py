@@ -3,12 +3,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates 
 from typing import List
 from whispercpp import Whisper
-import asyncio
 import os
 import aiofiles
 
 app = FastAPI()
-
+#w = Whisper('tiny')
 
 templates = Jinja2Templates(directory="templates")
 
@@ -43,6 +42,9 @@ async def get(request: Request):
 @app.websocket("/ws/audio")
 async def websocket_endpoint_audio(websocket: WebSocket):
     await manager.connect(websocket)
+    client_port = websocket.client.port
+    print(f"Client connected: {websocket.client.host}:{client_port}")
+
     try:
         while True:
             message = await websocket.receive()
@@ -53,7 +55,7 @@ async def websocket_endpoint_audio(websocket: WebSocket):
                 await manager.broadcast_text(f"Text from client: {data}")
             elif "bytes" in message:
                 audio_data = message["bytes"]
-                print(f"Received {len(audio_data)} bytes of audio data.")
+                print(f"Received {len(audio_data)} bytes of audio data from {client_port} (20s chunk).")
                 try:
                     os.makedirs("audio_uploads", exist_ok=True)
                     async with aiofiles.open(f"audio_uploads/received_audio_{websocket.client.port}.webm", "ab") as f:
