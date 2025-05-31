@@ -21,7 +21,7 @@ def run_llama_tests():
         elapsed = time.time() - start_time
         completionText = json.loads(output["completion_message"]["content"]["text"])
 
-        assert_scam_score(prompt["scam_score"], completionText["scam_score"], 3)
+        assert_scam_score(prompt["scam_score"], completionText["scam_score"], 2)
 
         print(f"{elapsed:.2f} seconds taken for prompt '{prompt['prompt']}'")
         if elapsed > 20:
