@@ -1,0 +1,12 @@
+{
+  "prompts": [
+    {
+      "prompt": "สวัสดีค่ะ เนื่องจากคุณเป็นผู้โชคดีได้รับโทรศัพท์ iPhone 16 32GB ฟรี 1 เครื่องค่ะ. จริงค่ะ หากคุณต้องการรับโทรศัพท์นี้ โปรดติดต่อ Line @iDle23 เพื่อแจ้งที่อยู่นะคะ",
+      "scam_score": 10
+    },
+    {
+      "prompt": "hello this is your recruiter calling. I have a job opportunity that I think you will be intereseted in. can you tell me if you are on the job market right now and what you are looking for?",
+      "scam_score": 5
+    }
+  ]
+}

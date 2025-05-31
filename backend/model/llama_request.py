@@ -1,8 +1,9 @@
 import os
 import requests
 import json
+import sys
 
-def main():
+def run_llama_request(user_prompt):
     token = os.getenv('LLAMA_KEY')
     if not token:
         raise ValueError("LLAMA_KEY environment variable is not set.")
@@ -28,7 +29,7 @@ def main():
             },
             {
                 "role": "user",
-                "content": f"abc"
+                "content": user_prompt
             }
         ],
         "response_format": {
@@ -44,5 +45,11 @@ def main():
     print(response.status_code)
     print(response.json())
 
+    return response.json()
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: python llama_request.py '<user prompt>'")
+        sys.exit(1)
+    user_prompt = sys.argv[1]
+    run_llama_request(user_prompt)
