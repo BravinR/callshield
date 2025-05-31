@@ -1,13 +1,17 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates 
-from typing import List
+from typing import List, Dict
 from whispercpp import Whisper
 import os
 import aiofiles
+import subprocess
+import asyncio
+from pydub import AudioSegment
+import io
 
 app = FastAPI()
-#w = Whisper('tiny')
+whisper_model = Whisper('tiny')
+ffmpeg_processes: Dict[int, subprocess.Popen] = {}
 
 templates = Jinja2Templates(directory="templates")
 
@@ -47,25 +51,70 @@ async def websocket_endpoint_audio(websocket: WebSocket):
 
     try:
         while True:
-            message = await websocket.receive()
+            # Add timeout to prevent indefinite blocking
+            try:
+                message = await asyncio.wait_for(websocket.receive(), timeout=30.0)
+            except asyncio.TimeoutError:
+                print(f"WebSocket timeout for client {client_port}")
+                continue
             
             if "text" in message:
                 data = message["text"]
                 print(f"Received text: {data}")
                 await manager.broadcast_text(f"Text from client: {data}")
+                
             elif "bytes" in message:
                 audio_data = message["bytes"]
-                print(f"Received {len(audio_data)} bytes of audio data from {client_port} (20s chunk).")
+                print(f"Received {len(audio_data)} bytes of audio data from {client_port}")
+                
                 try:
+                    # Convert received bytes (WebM) to WAV
+                    audio_segment = AudioSegment.from_file(io.BytesIO(audio_data), format="webm")
+                    
+                    # Convert to WAV format (16kHz, mono, 16-bit for Whisper optimization)
+                    audio_segment = audio_segment.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+                    
+                    # Create audio uploads directory
                     os.makedirs("audio_uploads", exist_ok=True)
-                    async with aiofiles.open(f"audio_uploads/received_audio_{websocket.client.port}.webm", "ab") as f:
-                        await f.write(audio_data)
+                    
+                    # Save as WAV file
+                    wav_filename = f"audio_uploads/received_audio_{client_port}_{asyncio.get_event_loop().time()}.wav"
+                    audio_segment.export(wav_filename, format="wav")
+                    
+                    print(f"Converted audio saved as: {wav_filename}")
+                    
+                    # Transcribe the WAV file
+                    try:
+                        result = whisper_model.transcribe(wav_filename)
+                        text = whisper_model.extract_text(result)
+                        if text:
+                            print(f"Transcribed for {client_port}: {text}")
+                            await websocket.send_text(f"Transcription: {text}")
+                        else:
+                            print(f"No text transcribed for {client_port}")
+                            
+                    except Exception as e:
+                        print(f"Error during transcription for {client_port}: {e}")
+                    
+                    # Optional: Save original WebM data as well
+                    try:
+                        webm_filename = f"audio_uploads/original_{client_port}_{asyncio.get_event_loop().time()}.webm"
+                        async with aiofiles.open(webm_filename, "wb") as f:
+                            await f.write(audio_data)
+                    except Exception as e:
+                        print(f"Error saving original audio for {client_port}: {e}")
+                    
+                    await manager.broadcast_text(f"Processed audio chunk of length: {len(audio_data)}")
+                    
                 except Exception as e:
-                    print(f"Error saving audio chunk: {e}")
-                await manager.broadcast_text(f"We received the whole video of length: {len(audio_data)}")
+                    print(f"Error converting audio for {client_port}: {e}")
+                    await websocket.send_text(f"Error processing audio: {str(e)}")
 
     except WebSocketDisconnect:
+        print(f"Client {client_port} disconnected")
         manager.disconnect(websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
-        await manager.disconnect(websocket)
+        print(f"WebSocket error for {client_port}: {e}")
+        manager.disconnect(websocket)
+    finally:
+        print(f"Cleaned up resources for client {client_port}")
