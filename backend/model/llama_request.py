@@ -8,7 +8,11 @@ def main():
         raise ValueError("LLAMA_KEY environment variable is not set.")
     model = "Llama-4-Scout-17B-16E-Instruct-FP8"
 
-    systemPrompt = "Null"
+    with open(os.path.join(os.path.dirname(__file__), '../prompts/system_prompt.txt'), 'r', encoding='utf-8') as f:
+        systemPrompt = f.read()
+
+    with open(os.path.join(os.path.dirname(__file__), '../prompts/structured_output.json'), 'r', encoding='utf-8') as f:
+        structuredOutputSchema = json.load(f)
 
     url = "https://api.llama.com/v1/chat/completions"
     headers = {
@@ -26,7 +30,13 @@ def main():
                 "role": "user",
                 "content": f"abc"
             }
-        ]
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "schema": structuredOutputSchema
+            }
+        }
     }
 
     response = requests.post(url, headers=headers, data=json.dumps(data))
