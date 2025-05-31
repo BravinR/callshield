@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Audio Chat</title>
+        <style>
+            body { font-family: sans-serif; }
+            #messages { list-style-type: none; padding: 0; }
+            #messages li { padding: 8px 0; border-bottom: 1px solid #eee; }
+            #recordButton { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+            #status { margin-top: 10px; font-weight: bold; }
+
+            /* Styles for the progress bar */
+            #progressBarContainer {
+                width: 100%;
+                background-color: #f3f3f3;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                margin-top: 15px;
+                overflow: hidden; /* Ensures the bar inside doesn't spill out */
+                height: 25px; /* Height of the progress bar container */
+            }
+
+            #progressBar {
+                width: 0%; /* Initial width */
+                height: 100%;
+                background-color: #4CAF50; /* Green color */
+                text-align: center;
+                line-height: 25px; /* Center text vertically */
+                color: white;
+                font-weight: bold;
+                transition: width 0.1s linear; /* Smooth transition for width changes */
+            }
+        </style>
+    </head>
+    <body>
+        <h1>WebSocket Audio Chat</h1>
+        <button id="recordButton">Start Recording</button>
+        <div id="status">Ready</div>
+        <div id="progressBarContainer">
+            <div id="progressBar"></div>
+        </div>
+        <ul id='messages'>
+        </ul>
+
+        <script>
+            let ws;
+            let mediaRecorder;
+            let isRecording = false;
+            let progressBarInterval; // Variable to hold the progress bar interval
+            const CHUNK_DURATION = 20000; // 20 seconds in milliseconds
+
+            const recordButton = document.getElementById('recordButton');
+            const statusDiv = document.getElementById('status');
+            const messagesList = document.getElementById('messages');
+            const progressBar = document.getElementById('progressBar');
+
+            function updateProgressBar(percentage) {
+                progressBar.style.width = percentage + '%';
+                progressBar.textContent = `${percentage.toFixed(0)}%`;
+            }
+
+            function startProgressBar() {
+                let startTime = Date.now();
+                updateProgressBar(0); // Initialize progress bar to 0%
+
+                if (progressBarInterval) {
+                    clearInterval(progressBarInterval); // Clear any existing interval
+                }
+
+                progressBarInterval = setInterval(() => {
+                    const elapsedTime = Date.now() - startTime;
+                    let percentage = (elapsedTime / CHUNK_DURATION) * 100;
+                    if (percentage > 100) {
+                        percentage = 100; // Cap at 100%
+                    }
+                    updateProgressBar(percentage);
+
+                    // If a chunk is sent and the bar resets, startTime will be updated.
+                    // This interval will continue until stopProgressBar is called.
+                }, 100); // Update every 100 milliseconds for smoother animation
+            }
+
+            function stopProgressBar() {
+                if (progressBarInterval) {
+                    clearInterval(progressBarInterval);
+                    progressBarInterval = null;
+                }
+                updateProgressBar(0); // Reset progress bar to empty
+            }
+
+            function connectWebSocket() {
+                ws = new WebSocket("ws://localhost:8000/ws/audio");
+
+                ws.onopen = function(event) {
+                    statusDiv.textContent = "Connected to chat server.";
+                    recordButton.disabled = false;
+                };
+
+                ws.onmessage = async function(event) {
+                    if (typeof event.data === 'string') {
+                        const message = document.createElement('li');
+                        message.textContent = `Server: ${event.data}`;
+                        messagesList.appendChild(message);
+                    }
+                };
+
+                ws.onclose = function(event) {
+                    statusDiv.textContent = "Disconnected from chat server. Reconnecting in 5 seconds...";
+                    recordButton.disabled = true;
+                    stopProgressBar(); // Stop progress bar on disconnect
+                    setTimeout(connectWebSocket, 5000); // Attempt to reconnect
+                };
+
+                ws.onerror = function(event) {
+                    statusDiv.textContent = "WebSocket Error: " + event.message;
+                    stopProgressBar(); // Stop progress bar on error
+                    ws.close();
+                };
+            }
+
+            recordButton.onclick = async () => {
+                if (!isRecording) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new MediaRecorder(stream);
+                        
+                        mediaRecorder.ondataavailable = (event) => {
+                            if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+                                ws.send(event.data);
+                                console.log(`Audio chunk sent. Size: ${event.data.size}. This chunk represents approximately 20 seconds of audio.`);
+                                // Reset the progress bar when a new chunk starts
+                                stopProgressBar(); // Stop and reset
+                                startProgressBar(); // Restart
+                            }
+                        };
+
+                        mediaRecorder.onstop = () => {
+                            console.log("Recording stopped.");
+                            stream.getTracks().forEach(track => track.stop());
+                            stopProgressBar(); // Stop progress bar when recording stops
+                        };
+
+                        mediaRecorder.start(CHUNK_DURATION); // Send data every 20 seconds
+                        isRecording = true;
+                        recordButton.textContent = "Stop Recording";
+                        statusDiv.textContent = "Recording and streaming chunks every 20 seconds...";
+                        startProgressBar(); // Start the progress bar
+                    } catch (error) {
+                        console.error("Error accessing microphone:", error);
+                        statusDiv.textContent = "Error: Could not access microphone. " + error.message;
+                        stopProgressBar(); // Ensure progress bar is stopped on error
+                    }
+                } else {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    recordButton.textContent = "Start Recording";
+                    statusDiv.textContent = "Streaming stopped.";
+                    stopProgressBar(); // Stop the progress bar
+                }
+            };
+
+            // Initial WebSocket connection
+            connectWebSocket();
+        </script>
+    </body>
+</html>
