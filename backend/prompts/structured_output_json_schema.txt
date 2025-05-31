@@ -1,0 +1,16 @@
+{
+	"properties": {
+		"scam_score": {
+			"type": "number"
+		},
+		"explanation": {
+			"type": "string",
+			"description": "Explain why the user input was assigned the given score. Show up to 5 bullet points, be concise."
+		}
+	},
+	"required": [
+		"scam_score",
+		"explanation"
+	],
+	"type": "object"
+}
