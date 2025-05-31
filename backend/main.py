@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates 
 from typing import List
+from whispercpp import Whisper
 import asyncio
 import os
 import aiofiles
