@@ -27,6 +27,5 @@ def run_llama_tests():
         if elapsed > 20:
             print(f"Warning: Slow response for prompt '{prompt['prompt']}' - {elapsed:.2f} seconds")
 
-
 if __name__ == "__main__":
     run_llama_tests()
