@@ -29,6 +29,7 @@ It leverages the Whisper AI model for speech-to-text transcription and Llama 4 f
 2. Set up the environment variables:
    ```bash
    export LLAMA_KEY="<your_llama_api_key>"
+   export PYTHONPATH=$(pwd)
    ```
 3. Create a virtual environment:
    ```bash
@@ -39,16 +40,12 @@ It leverages the Whisper AI model for speech-to-text transcription and Llama 4 f
    ```bash
     pip install -r backend/requirements.txt
     ```
-5. Set the python path to the virtual environment:
-   ```bash
-   export PYTHONPATH=$(pwd)
-   ```
-6. Start the FastAPI server:
+5. Start the FastAPI server:
    ```bash
    cd backend
-   fastapi dev main
+   fastapi dev main.py
     ```
-7. Open your web browser and navigate to `http://localhost:8000` to access the application. Simply press the call button and speak into the microphone to start scam detection!
+6. Open your web browser and navigate to `http://localhost:8000` to access the application. Simply press the call button and speak into the microphone to start scam detection!
 
 ### How it Works
 1. **Audio Capture**: The application captures audio from the user's microphone in real-time
