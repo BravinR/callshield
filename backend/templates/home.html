@@ -69,6 +69,32 @@
             transition: width 0.1s linear;
             /* Smooth transition for width changes */
         }
+
+        .dev-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(100, 100, 100, 0.3);
+            color: #666;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .dev-info {
+            display: none;
+            width: 100%;
+        }
+        .dev-info.visible {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+
     </style>
 
     <style>
@@ -91,8 +117,13 @@
         }
 
         .call-info {
+            visibility: hidden;
             text-align: center;
             margin-top: 40px;
+        }
+
+        .call-info.visible {
+            visibility: visible;
         }
 
         .avatar {
@@ -191,11 +222,11 @@
 </head>
 
 <body>
-    <div class="call-info">
+    <div class="call-info" id="callInfo">
         <div class="avatar">U</div>
         <div class="caller-name">Unknown caller</div>
-        <div class="call-status">Calling...</div>
-        <div class="call-duration">00:05</div>
+        <div class="call-status">Connected</div>
+        <div class="call-duration" id="callDuration">00:00</div>
     </div>
 
 
@@ -208,12 +239,17 @@
             <span class="call-icon">📵</span>
         </button>
     </div>
-    <div id="status">Ready</div>
-    <div id="progressBarContainer">
-        <div id="progressBar"></div>
+
+    <button class="dev-button" id="devButton">Dev</button>
+
+    <div class="dev-info" id="devInfo">
+        <div id="status">Ready</div>
+        <div id="progressBarContainer">
+            <div id="progressBar"></div>
+        </div>
+        <ul id='messages'>
+        </ul>
     </div>
-    <ul id='messages'>
-    </ul>
 
     <script>
         let ws;
@@ -225,6 +261,7 @@
         let chunkCounter = 0;
         const CHUNK_DURATION = 10000;
 
+        const callerDiv = document.getElementById('callInfo');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const statusDiv = document.getElementById('status');
@@ -336,10 +373,13 @@
         }
 
         function stopRecording() {
+            console.log("Stopping recording");
             isRecording = false;
             startButton.disabled = false;
             stopButton.disabled = true;
             statusDiv.textContent = "Streaming stopped.";
+            callerDiv.classList.remove('visible');
+            clearInterval(callDurationInterval);
             stopProgressBar();
             chunkCounter = 0;
 
@@ -386,6 +426,14 @@
             };
         }
 
+        let callStartTime, callDurationInterval;
+        function updateCallDuration() {
+            const elapsedTime = Date.now() - callStartTime;
+            const elapsedMins = String(Math.floor(elapsedTime / 60000)).padStart(2, '0');
+            const elapsedSecs = String(Math.floor((elapsedTime % 60000) / 1000)).padStart(2, '0');
+            callDuration.textContent = `${elapsedMins}:${elapsedSecs}`;
+        }
+
         startButton.onclick = async () => {
             try {
                 // Get fresh audio stream
@@ -394,11 +442,14 @@
                 isRecording = true;
                 startButton.disabled = true;
                 stopButton.disabled = false;
-                statusDiv.textContent = "Recording and streaming complete chunks every 20 seconds...";
+                statusDiv.textContent = `Recording and streaming complete chunks every ${CHUNK_DURATION / 1000} seconds...`;
+                callerDiv.classList.add('visible');
                 chunkCounter = 0;
 
                 startProgressBar();
                 startRecordingLoop(); // Start the recording loop
+                callStartTime = Date.now();
+                callDurationInterval = setInterval(updateCallDuration, 1000);
 
             } catch (error) {
                 console.error("Error accessing microphone:", error);
@@ -413,6 +464,14 @@
 
         // Initial WebSocket connection
         connectWebSocket();
+
+        // Toggle dev panel visibility
+        const devButton = document.getElementById('devButton');
+        const devInfo = document.getElementById('devInfo');
+        
+        devButton.addEventListener('click', function() {
+            devInfo.classList.toggle('visible');
+        });
     </script>
 </body>
 
