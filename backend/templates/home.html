@@ -6,7 +6,16 @@
             body { font-family: sans-serif; }
             #messages { list-style-type: none; padding: 0; }
             #messages li { padding: 8px 0; border-bottom: 1px solid #eee; }
-            #recordButton { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+            #startButton, #stopButton { 
+                padding: 10px 20px; 
+                font-size: 16px; 
+                cursor: pointer; 
+                margin-right: 10px;
+            }
+            #stopButton:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
             #status { margin-top: 10px; font-weight: bold; }
 
             /* Styles for the progress bar */
@@ -34,7 +43,10 @@
     </head>
     <body>
         <h1>WebSocket Audio Chat</h1>
-        <button id="recordButton">Start Recording</button>
+        <div>
+            <button id="startButton">Start Recording</button>
+            <button id="stopButton" disabled>Stop Recording</button>
+        </div>
         <div id="status">Ready</div>
         <div id="progressBarContainer">
             <div id="progressBar"></div>
@@ -46,10 +58,14 @@
             let ws;
             let mediaRecorder;
             let isRecording = false;
-            let progressBarInterval; // Variable to hold the progress bar interval
-            const CHUNK_DURATION = 20000; // 20 seconds in milliseconds
+            let progressBarInterval;
+            let recordingInterval;
+            let audioStream;
+            let chunkCounter = 0;
+            const CHUNK_DURATION = 4000; 
 
-            const recordButton = document.getElementById('recordButton');
+            const startButton = document.getElementById('startButton');
+            const stopButton = document.getElementById('stopButton');
             const statusDiv = document.getElementById('status');
             const messagesList = document.getElementById('messages');
             const progressBar = document.getElementById('progressBar');
@@ -61,23 +77,27 @@
 
             function startProgressBar() {
                 let startTime = Date.now();
-                updateProgressBar(0); // Initialize progress bar to 0%
+                updateProgressBar(0);
 
                 if (progressBarInterval) {
-                    clearInterval(progressBarInterval); // Clear any existing interval
+                    clearInterval(progressBarInterval);
                 }
 
                 progressBarInterval = setInterval(() => {
                     const elapsedTime = Date.now() - startTime;
                     let percentage = (elapsedTime / CHUNK_DURATION) * 100;
                     if (percentage > 100) {
-                        percentage = 100; // Cap at 100%
+                        percentage = 100;
                     }
                     updateProgressBar(percentage);
+                }, 100);
+            }
 
-                    // If a chunk is sent and the bar resets, startTime will be updated.
-                    // This interval will continue until stopProgressBar is called.
-                }, 100); // Update every 100 milliseconds for smoother animation
+            function resetProgressBar() {
+                if (progressBarInterval) {
+                    clearInterval(progressBarInterval);
+                }
+                startProgressBar(); // Restart the progress bar
             }
 
             function stopProgressBar() {
@@ -85,7 +105,87 @@
                     clearInterval(progressBarInterval);
                     progressBarInterval = null;
                 }
-                updateProgressBar(0); // Reset progress bar to empty
+                updateProgressBar(0);
+            }
+
+            function createNewRecorder() {
+                return new Promise((resolve, reject) => {
+                    if (!audioStream) {
+                        reject(new Error("No audio stream available"));
+                        return;
+                    }
+
+                    const recorder = new MediaRecorder(audioStream);
+                    let audioChunks = [];
+
+                    recorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+
+                    recorder.onstop = () => {
+                        if (audioChunks.length > 0) {
+                            // Create a complete WebM blob from all chunks
+                            const completeBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            
+                            if (ws.readyState === WebSocket.OPEN) {
+                                ws.send(completeBlob);
+                                chunkCounter++;
+                                console.log(`Complete audio chunk #${chunkCounter} sent. Size: ${completeBlob.size} bytes. Duration: ~20 seconds.`);
+                            }
+                        }
+                        resolve();
+                    };
+
+                    recorder.onerror = (event) => {
+                        console.error("MediaRecorder error:", event.error);
+                        reject(event.error);
+                    };
+
+                    // Start recording for the specified duration
+                    recorder.start();
+                    
+                    // Stop recording after CHUNK_DURATION
+                    setTimeout(() => {
+                        if (recorder.state === 'recording') {
+                            recorder.stop();
+                        }
+                    }, CHUNK_DURATION);
+                });
+            }
+
+            async function startRecordingLoop() {
+                if (!isRecording) return;
+
+                try {
+                    await createNewRecorder();
+                    resetProgressBar(); // Reset progress bar for next chunk
+                    
+                    // Continue recording if still in recording mode
+                    if (isRecording) {
+                        // Small delay to prevent overlap
+                        setTimeout(startRecordingLoop, 100);
+                    }
+                } catch (error) {
+                    console.error("Error in recording loop:", error);
+                    statusDiv.textContent = "Recording error: " + error.message;
+                    stopRecording();
+                }
+            }
+
+            function stopRecording() {
+                isRecording = false;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                statusDiv.textContent = "Streaming stopped.";
+                stopProgressBar();
+                chunkCounter = 0;
+                
+                if (audioStream) {
+                    audioStream.getTracks().forEach(track => track.stop());
+                    audioStream = null;
+                }
             }
 
             function connectWebSocket() {
@@ -93,7 +193,7 @@
 
                 ws.onopen = function(event) {
                     statusDiv.textContent = "Connected to chat server.";
-                    recordButton.disabled = false;
+                    startButton.disabled = false;
                 };
 
                 ws.onmessage = async function(event) {
@@ -106,57 +206,48 @@
 
                 ws.onclose = function(event) {
                     statusDiv.textContent = "Disconnected from chat server. Reconnecting in 5 seconds...";
-                    recordButton.disabled = true;
-                    stopProgressBar(); // Stop progress bar on disconnect
-                    setTimeout(connectWebSocket, 5000); // Attempt to reconnect
+                    startButton.disabled = true;
+                    stopButton.disabled = true;
+                    stopProgressBar();
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                    setTimeout(connectWebSocket, 5000);
                 };
 
                 ws.onerror = function(event) {
                     statusDiv.textContent = "WebSocket Error: " + event.message;
-                    stopProgressBar(); // Stop progress bar on error
+                    stopProgressBar();
+                    if (isRecording) {
+                        stopRecording();
+                    }
                     ws.close();
                 };
             }
 
-            recordButton.onclick = async () => {
-                if (!isRecording) {
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        mediaRecorder = new MediaRecorder(stream);
-                        
-                        mediaRecorder.ondataavailable = (event) => {
-                            if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-                                ws.send(event.data);
-                                console.log(`Audio chunk sent. Size: ${event.data.size}. This chunk represents approximately 20 seconds of audio.`);
-                                // Reset the progress bar when a new chunk starts
-                                stopProgressBar(); // Stop and reset
-                                startProgressBar(); // Restart
-                            }
-                        };
-
-                        mediaRecorder.onstop = () => {
-                            console.log("Recording stopped.");
-                            stream.getTracks().forEach(track => track.stop());
-                            stopProgressBar(); // Stop progress bar when recording stops
-                        };
-
-                        mediaRecorder.start(CHUNK_DURATION); // Send data every 20 seconds
-                        isRecording = true;
-                        recordButton.textContent = "Stop Recording";
-                        statusDiv.textContent = "Recording and streaming chunks every 20 seconds...";
-                        startProgressBar(); // Start the progress bar
-                    } catch (error) {
-                        console.error("Error accessing microphone:", error);
-                        statusDiv.textContent = "Error: Could not access microphone. " + error.message;
-                        stopProgressBar(); // Ensure progress bar is stopped on error
-                    }
-                } else {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    recordButton.textContent = "Start Recording";
-                    statusDiv.textContent = "Streaming stopped.";
-                    stopProgressBar(); // Stop the progress bar
+            startButton.onclick = async () => {
+                try {
+                    // Get fresh audio stream
+                    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    isRecording = true;
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                    statusDiv.textContent = "Recording and streaming complete chunks every 20 seconds...";
+                    chunkCounter = 0;
+                    
+                    startProgressBar();
+                    startRecordingLoop(); // Start the recording loop
+                    
+                } catch (error) {
+                    console.error("Error accessing microphone:", error);
+                    statusDiv.textContent = "Error: Could not access microphone. " + error.message;
+                    stopProgressBar();
                 }
+            };
+
+            stopButton.onclick = () => {
+                stopRecording();
             };
 
             // Initial WebSocket connection
