@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.templating import Jinja2Templates 
 from typing import List, Dict
-from whispercpp import Whisper
+from pywhispercpp.model import Model
 import os
 import aiofiles
 import subprocess
@@ -9,11 +9,11 @@ import asyncio
 from pydub import AudioSegment
 import io
 import json
-
+import re
 from backend.model import llama_request
 
 app = FastAPI()
-whisper_model = Whisper('tiny')
+whisper_model = Model('small')
 ffmpeg_processes: Dict[int, subprocess.Popen] = {}
 
 templates = Jinja2Templates(directory="templates")
@@ -95,14 +95,17 @@ async def websocket_endpoint_audio(websocket: WebSocket):
                     
                     # Transcribe the WAV file
                     try:
-                        result = whisper_model.transcribe(wav_filename)
-                        text = whisper_model.extract_text(result)
+                        results_one = whisper_model.auto_detect_language(wav_filename, offset_ms=0, n_threads=4)
+                        language= results_one[0][0]
+                        print("language: ",language)
+                        await websocket.send_text(f"Language Detected: {results_one[0]}")
+                        results = whisper_model.transcribe(wav_filename, language=language)
+                        text = results[0].text
                         if text:
-                            text_string = " ".join(text)
-                            print(f"Transcribed for {client_port}: {text_string}")
-                            await websocket.send_text(f"Transcription: {text_string}")
+                            print(f"Transcribed for {client_port}: {text}")
+                            await websocket.send_text(f"Transcription: {text}")
 
-                            manager.appendHistoricalOutput(client_port, text_string)
+                            manager.appendHistoricalOutput(client_port, text)
                             print("historical output: " + manager.getHistoricalOutput(client_port))
                             llama_output = llama_request.run_llama_request(manager.getHistoricalOutput(client_port))
                             completion_text = json.loads(llama_output["completion_message"]["content"]["text"])
