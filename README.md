@@ -26,19 +26,19 @@ It leverages the Whisper AI model for speech-to-text transcription and Llama 4 f
    git clone https://github.com/BravinR/callshield.git
    cd callshield
     ```
-2. Create a virtual environment:
+2. Set up the environment variables:
+   ```bash
+   export LLAMA_KEY="<your_llama_api_key>"
+   ```
+3. Create a virtual environment:
    ```bash
    python -m venv venv
    source venv/bin/activate
    ```
-3. Install the required packages:
+4. Install the required packages:
    ```bash
     pip install -r backend/requirements.txt
     ```
-4. Set up the environment variables:
-   ```bash
-   export LLAMA_KEY="<your_llama_api_key>"
-   ```
 5. Set the python path to the virtual environment:
    ```bash
    export PYTHONPATH=$(pwd)

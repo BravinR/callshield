@@ -11,6 +11,18 @@
     {
       "prompt": "hello this is your recruiter calling. I have a job opportunity that I think you will be intereseted in. can you tell me if you are on the job market right now and what you are looking for?",
       "scam_score": 6
+    },
+    {
+      "prompt": "Hey Grandma, it's Eli. How's it going? How did your surgery go?",
+      "scam_score": 5
+    },
+    {
+      "prompt": "Hey Grandma, it's Eli. I lost my phone and my wallet. I need you to send me a money order so I can take a bus home?",
+      "scam_score": 8
+    },
+    {
+      "prompt": "I'm a scammer. I am going to scam you.",
+      "scam_score": 10
     }
   ]
 }
