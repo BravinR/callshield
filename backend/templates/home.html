@@ -379,6 +379,7 @@
             stopButton.disabled = true;
             statusDiv.textContent = "Streaming stopped.";
             callerDiv.classList.remove('visible');
+            clearInterval(callDurationInterval);
             stopProgressBar();
             chunkCounter = 0;
 
@@ -425,6 +426,14 @@
             };
         }
 
+        let callStartTime, callDurationInterval;
+        function updateCallDuration() {
+            const elapsedTime = Date.now() - callStartTime;
+            const elapsedMins = String(Math.floor(elapsedTime / 60000)).padStart(2, '0');
+            const elapsedSecs = String(Math.floor((elapsedTime % 60000) / 1000)).padStart(2, '0');
+            callDuration.textContent = `${elapsedMins}:${elapsedSecs}`;
+        }
+
         startButton.onclick = async () => {
             try {
                 // Get fresh audio stream
@@ -439,6 +448,8 @@
 
                 startProgressBar();
                 startRecordingLoop(); // Start the recording loop
+                callStartTime = Date.now();
+                callDurationInterval = setInterval(updateCallDuration, 1000);
 
             } catch (error) {
                 console.error("Error accessing microphone:", error);
