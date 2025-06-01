@@ -58,6 +58,3 @@ It leverages the Whisper AI model for speech-to-text transcription and Llama 4 f
    2. The text is appended to the previous text for context so the entire up-to-date conversation is sent
 7. **Scam Score Calculation**: The Llama 4 model calculated a scam score for any input language
 8. **Real-time Updates**: If a high scam score is outputted, the application uses Websockets to send a real-time notification to the user to display a warning message
-
-## Other sources:
-[hyqshr/whispercpp-fastapi](https://github.com/hyqshr/whispercpp-fastapi)
