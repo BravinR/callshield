@@ -480,6 +480,19 @@
             }
         }
 
+        function setScamStatusUI(scamScore) {
+            if (scamScore > 6 && scamScore < 8) {
+                scamMedium.classList.add('visible');
+                scamHigh.classList.remove('visible');
+            }
+            else if (scamScore > 8) {
+                scamHigh.classList.add('visible');
+                scamMedium.classList.remove('visible');
+                const utterance = new SpeechSynthesisUtterance("Granny no! This is a scam. Hang up now!");
+                speechSynthesis.speak(utterance);
+            }            
+        }
+
         function stopRecording() {
             console.log("Stopping recording");
             isRecording = false;
@@ -516,14 +529,7 @@
 
                     if (event.data.includes('Scam Score:')) {
                         const scamScore = event.data.split('Scam Score:')[1].trim();
-                        if (scamScore > 6 && scamScore < 8) {
-                            scamMedium.classList.add('visible');
-                            scamHigh.classList.remove('visible');
-                        }
-                        else if (scamScore > 8) {
-                            scamHigh.classList.add('visible');
-                            scamMedium.classList.remove('visible');
-                        }
+                        setScamStatusUI(scamScore);
                     }
                 }
             };
