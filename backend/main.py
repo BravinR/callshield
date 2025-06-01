@@ -13,7 +13,7 @@ import json
 from backend.model import llama_request
 
 app = FastAPI()
-whisper_model = Whisper('tiny')
+whisper_model = Whisper('small')
 ffmpeg_processes: Dict[int, subprocess.Popen] = {}
 
 templates = Jinja2Templates(directory="templates")
