@@ -1,6 +1,10 @@
 {
   "prompts": [
     {
+      "prompt": "Hello, my name is John and I'm from tech support. We have detected a virus on your computer.",
+      "scam_score": 6
+    },
+    {
       "prompt": "สวัสดีค่ะ เนื่องจากคุณเป็นผู้โชคดีได้รับโทรศัพท์ iPhone 16 32GB ฟรี 1 เครื่องค่ะ. จริงค่ะ หากคุณต้องการรับโทรศัพท์นี้ โปรดติดต่อ Line @iDle23 เพื่อแจ้งที่อยู่นะคะ",
       "scam_score": 10
     },
