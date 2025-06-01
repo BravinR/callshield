@@ -8,6 +8,9 @@ import subprocess
 import asyncio
 from pydub import AudioSegment
 import io
+import json
+
+from backend.model import llama_request
 
 app = FastAPI()
 whisper_model = Whisper('tiny')
@@ -90,6 +93,14 @@ async def websocket_endpoint_audio(websocket: WebSocket):
                         if text:
                             print(f"Transcribed for {client_port}: {text}")
                             await websocket.send_text(f"Transcription: {text}")
+
+                            llama_output = llama_request.run_llama_request(text[0])
+                            completion_text = json.loads(llama_output["completion_message"]["content"]["text"])
+                            scam_score = completion_text["scam_score"]
+                            explanation = completion_text["explanation"]
+
+                            await websocket.send_text(f"Scam Score: {scam_score}")
+                            await websocket.send_text(f"Explanation: {explanation}")
                         else:
                             print(f"No text transcribed for {client_port}")
                             
