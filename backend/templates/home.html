@@ -94,6 +94,57 @@
             justify-content: center;
         }
 
+        .scam-bubble {
+            position: absolute;
+            top: 160px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: none;
+            align-items: center;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            animation: pulse 2s infinite;
+            z-index: 10;
+        }
+
+        .scam-bubble.visible {
+            display: flex;
+        }
+
+        .scam-bubble .warning-emoji {
+            font-size: 18px;
+            margin-right: 8px;
+        }
+        
+        .scam-bubble .scam-text {
+            font-size: 14px;
+        }
+        
+        .scam-bubble.scam-medium {
+            background-color: #FFD700;
+            color: #000;
+            border: 1px solid #B8860B;
+        }
+        
+        .scam-bubble.scam-high {
+            background-color: #FF3B30;
+            color: #fff;
+            border: 1px solid #8B0000;
+        }
+        
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
 
     </style>
 
@@ -227,6 +278,16 @@
         <div class="caller-name">Unknown caller</div>
         <div class="call-status">Connected</div>
         <div class="call-duration" id="callDuration">00:00</div>
+        <!-- Scam warning bubble - Medium risk (yellow variant) -->
+        <div class="scam-bubble scam-medium" id="scamMedium">
+            <span class="warning-emoji">⚠️</span>
+            <span class="scam-text">Scam Score: Medium</span>
+        </div>
+        <!-- Scam warning bubble - High risk (red variant) - Uncomment to use -->
+        <div class="scam-bubble scam-high" id="scamHigh">
+            <span class="warning-emoji">⚠️</span>
+            <span class="scam-text">Scam Score: High</span>
+        </div>
     </div>
 
 
@@ -267,6 +328,8 @@
         const statusDiv = document.getElementById('status');
         const messagesList = document.getElementById('messages');
         const progressBar = document.getElementById('progressBar');
+        const scamMedium = document.getElementById('scamMedium');
+        const scamHigh = document.getElementById('scamHigh');
 
         function updateProgressBar(percentage) {
             progressBar.style.width = percentage + '%';
@@ -402,6 +465,18 @@
                     const message = document.createElement('li');
                     message.textContent = `Server: ${event.data}`;
                     messagesList.appendChild(message);
+
+                    if (event.data.includes('Scam Score:')) {
+                        const scamScore = event.data.split('Scam Score:')[1].trim();
+                        if (scamScore > 5 && scamScore < 8) {
+                            scamMedium.classList.add('visible');
+                            scamHigh.classList.remove('visible');
+                        }
+                        else if (scamScore > 8) {
+                            scamHigh.classList.add('visible');
+                            scamMedium.classList.remove('visible');
+                        }
+                    }
                 }
             };
 
