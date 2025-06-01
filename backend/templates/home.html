@@ -168,13 +168,20 @@
         }
 
         .call-info {
-            visibility: hidden;
             text-align: center;
             margin-top: 40px;
         }
 
-        .call-info.visible {
+        .call-status, .call-duration {
+            visibility: hidden;
+        }
+
+        .call-status.visible,
+        .call-duration.visible {
             visibility: visible;
+        }
+        #callIncoming {
+            animation: pulse 2s infinite;
         }
 
         .avatar {
@@ -197,7 +204,7 @@
         }
 
         .call-status {
-            font-size: 16px;
+            font-size: 22px;
             color: #aaa;
             margin-bottom: 10px;
         }
@@ -276,8 +283,12 @@
     <div class="call-info" id="callInfo">
         <div class="avatar">U</div>
         <div class="caller-name">Unknown caller</div>
-        <div class="call-status">Connected</div>
+        
+        <div class="call-status visible" id="callIncoming">Incoming call...</div>
+        <div class="call-status" id="callConnected">Connected</div>
+        <div class="call-status" id="callEnded">Call Ended</div>
         <div class="call-duration" id="callDuration">00:00</div>
+        
         <!-- Scam warning bubble - Medium risk (yellow variant) -->
         <div class="scam-bubble scam-medium" id="scamMedium">
             <span class="warning-emoji">⚠️</span>
@@ -320,9 +331,14 @@
         let recordingInterval;
         let audioStream;
         let chunkCounter = 0;
-        const CHUNK_DURATION = 10000;
+        const CHUNK_DURATION = 7000;
 
-        const callerDiv = document.getElementById('callInfo');
+        const callIncoming = document.getElementById('callIncoming');
+        const callConnected = document.getElementById('callConnected');
+        const callEnded = document.getElementById('callEnded');
+        const callDuration = document.getElementById('callDuration');
+        
+
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const statusDiv = document.getElementById('status');
@@ -435,14 +451,46 @@
             }
         }
 
+        function setCallStatusUI(status) {
+            switch (status) {
+                case 'incoming':
+                    callIncoming.classList.add('visible');
+                    callConnected.classList.remove('visible');
+                    callEnded.classList.remove('visible');
+                    callDuration.classList.remove('visible');
+                    updateCallDuration(true); // resets visible counter to 00:00
+                    break;
+                case 'connected': {
+                    callIncoming.classList.remove('visible');
+                    callConnected.classList.add('visible');
+                    callEnded.classList.remove('visible');
+                    callDuration.classList.add('visible');
+                    callStartTime = Date.now();
+                    callDurationInterval = setInterval(updateCallDuration, 1000);
+                    break;
+                }
+                case 'ended': {
+                    callIncoming.classList.remove('visible');
+                    callConnected.classList.remove('visible');
+                    callEnded.classList.add('visible');
+                    callDuration.classList.add('visible');
+                    clearInterval(callDurationInterval);
+                    break;
+                }
+            }
+        }
+
         function stopRecording() {
             console.log("Stopping recording");
             isRecording = false;
             startButton.disabled = false;
             stopButton.disabled = true;
             statusDiv.textContent = "Streaming stopped.";
-            callerDiv.classList.remove('visible');
-            clearInterval(callDurationInterval);
+            setCallStatusUI('ended');
+            setTimeout(() => {
+                // Refresh the page
+                location.reload();
+            }, 7000);
             stopProgressBar();
             chunkCounter = 0;
 
@@ -502,7 +550,11 @@
         }
 
         let callStartTime, callDurationInterval;
-        function updateCallDuration() {
+        function updateCallDuration(reset = false) {
+            if (reset) {
+                callDuration.textContent = `00:00`;
+                return;
+            }
             const elapsedTime = Date.now() - callStartTime;
             const elapsedMins = String(Math.floor(elapsedTime / 60000)).padStart(2, '0');
             const elapsedSecs = String(Math.floor((elapsedTime % 60000) / 1000)).padStart(2, '0');
@@ -518,13 +570,11 @@
                 startButton.disabled = true;
                 stopButton.disabled = false;
                 statusDiv.textContent = `Recording and streaming complete chunks every ${CHUNK_DURATION / 1000} seconds...`;
-                callerDiv.classList.add('visible');
+                setCallStatusUI('connected');
                 chunkCounter = 0;
 
                 startProgressBar();
                 startRecordingLoop(); // Start the recording loop
-                callStartTime = Date.now();
-                callDurationInterval = setInterval(updateCallDuration, 1000);
 
             } catch (error) {
                 console.error("Error accessing microphone:", error);
