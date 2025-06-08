@@ -35,6 +35,7 @@ def run_llama_request(user_prompt):
         "response_format": {
             "type": "json_schema",
             "json_schema": {
+                "name": "scam_call_analysis",
                 "schema": structuredOutputSchema
             }
         }
